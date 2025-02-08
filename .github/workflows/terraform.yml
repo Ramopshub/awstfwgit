@@ -38,3 +38,5 @@ jobs:
 
       - name: Apply Terraform
         run: terraform apply -auto-approve
+        env:
+          TF_LOG: DEBUG
