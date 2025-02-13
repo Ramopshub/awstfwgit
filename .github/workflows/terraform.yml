@@ -1,14 +1,22 @@
-name: Get AWS EC2 Instance Details
+name: Get AWS EC2 VM Details
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  get-vm-details:
+  terraform-apply:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -17,22 +25,50 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Get EC2 Instance Details
+      - name: Initialize Terraform
+        run: terraform init
+
+      - name: Apply Terraform and Create VM
+        run: terraform apply -auto-approve
+
+      - name: Get Terraform Output in JSON
+        run: terraform output -json > tf_output.json
+
+      - name: Debug - Print Terraform Output
+        run: cat tf_output.json
+
+      - name: Extract VM Details Using JQ
         run: |
-          INSTANCE_DETAILS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=MyVM" --query "Reservations[].Instances[]" --output json)
-          
-          echo "Instance Details: $INSTANCE_DETAILS"  # Debugging
+          # Validate JSON before parsing
+          if jq empty tf_output.json 2>/dev/null; then
+              echo "✅ JSON is valid."
+          else
+              echo "❌ Invalid JSON detected. Terraform output might be empty or incorrect."
+              exit 1
+          fi
 
-          INSTANCE_ID=$(echo "$INSTANCE_DETAILS" | jq -r '.[0].InstanceId')
-          PUBLIC_IP=$(echo "$INSTANCE_DETAILS" | jq -r '.[0].PublicIpAddress // "No Public IP"')
-          INSTANCE_TYPE=$(echo "$INSTANCE_DETAILS" | jq -r '.[0].InstanceType')
+          # Extract values using jq
+          INSTANCE_ID=$(jq -r '.instance_id.value // empty' tf_output.json)
+          PUBLIC_IP=$(jq -r '.public_ip.value // empty' tf_output.json)
+          PRIVATE_IP=$(jq -r '.private_ip.value // empty' tf_output.json)
+          INSTANCE_TYPE=$(jq -r '.instance_type.value // empty' tf_output.json)
 
+          # Assign default values if missing
+          INSTANCE_ID=${INSTANCE_ID:-"Unknown Instance ID"}
+          PUBLIC_IP=${PUBLIC_IP:-"No Public IP"}
+          PRIVATE_IP=${PRIVATE_IP:-"No Private IP"}
+          INSTANCE_TYPE=${INSTANCE_TYPE:-"Unknown Instance Type"}
+
+          # Set extracted values as GitHub environment variables
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+          echo "PRIVATE_IP=$PRIVATE_IP" >> $GITHUB_ENV
           echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
 
-      - name: Print Extracted Details
+      - name: Print Extracted VM Details
         run: |
-          echo "✅ Instance ID: $INSTANCE_ID"
-          echo "✅ Public IP: $PUBLIC_IP"
-          echo "✅ Instance Type: $INSTANCE_TYPE"
+          echo "✅ Extracted VM Details:"
+          echo "📌 Instance ID: $INSTANCE_ID"
+          echo "📌 Public IP: $PUBLIC_IP"
+          echo "📌 Private IP: $PRIVATE_IP"
+          echo "📌 Instance Type: $INSTANCE_TYPE"
