@@ -80,4 +80,4 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Print Instance ID
-        run: echo "✅ AWS EC2 Instance ID: $INSTANCE_ID"
+        run: echo "AWS EC2 Instance ID: $INSTANCE_ID"
