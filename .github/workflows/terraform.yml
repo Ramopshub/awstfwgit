@@ -1,27 +1,38 @@
-terraform output -json > tf_output.json
+name: Get AWS EC2 Instance Details
 
-echo "Terraform Output JSON:"
-cat tf_output.json
+on:
+  workflow_dispatch:
 
-# Validate JSON
-if jq empty tf_output.json 2>/dev/null; then
-    echo "✅ JSON is valid."
-else
-    echo "❌ Invalid JSON detected. Terraform output might be empty or incorrect."
-    exit 1
-fi
+jobs:
+  get-vm-details:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-# Extract values safely
-PUBLIC_IP=$(jq -r '.public_ip.value // empty' tf_output.json)
-INSTANCE_TYPE=$(jq -r '.instance_type.value // empty' tf_output.json)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-# Default values if missing
-PUBLIC_IP=${PUBLIC_IP:-"No Public IP"}
-INSTANCE_TYPE=${INSTANCE_TYPE:-"Unknown Instance Type"}
+      - name: Get EC2 Instance Details
+        run: |
+          INSTANCE_DETAILS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=MyVM" --query "Reservations[].Instances[]" --output json)
+          
+          echo "Instance Details: $INSTANCE_DETAILS"  # Debugging
 
-echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
-echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
+          INSTANCE_ID=$(echo "$INSTANCE_DETAILS" | jq -r '.[0].InstanceId')
+          PUBLIC_IP=$(echo "$INSTANCE_DETAILS" | jq -r '.[0].PublicIpAddress // "No Public IP"')
+          INSTANCE_TYPE=$(echo "$INSTANCE_DETAILS" | jq -r '.[0].InstanceType')
 
-echo "✅ Extracted Details:"
-echo "📌 PUBLIC_IP: $PUBLIC_IP"
-echo "📌 INSTANCE_TYPE: $INSTANCE_TYPE"
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+          echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
+
+      - name: Print Extracted Details
+        run: |
+          echo "✅ Instance ID: $INSTANCE_ID"
+          echo "✅ Public IP: $PUBLIC_IP"
+          echo "✅ Instance Type: $INSTANCE_TYPE"
