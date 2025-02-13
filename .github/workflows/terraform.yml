@@ -81,7 +81,7 @@ jobs:
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Print Instance ID
-        run: echo "✅ AWS EC2 Instance ID: $INSTANCE_ID"
+        run: echo "AWS EC2 Instance ID: $INSTANCE_ID"
 
       - name: Parse Terraform Output with jq
         run: |
@@ -95,5 +95,5 @@ jobs:
 
       - name: Print Terraform Outputs
         run: |
-          echo "✅ EC2 Public IP: $PUBLIC_IP"
-          echo "✅ EC2 Instance Type: $INSTANCE_TYPE"
+          echo "EC2 Public IP: $PUBLIC_IP"
+          echo "EC2 Instance Type: $INSTANCE_TYPE"
