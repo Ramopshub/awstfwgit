@@ -86,7 +86,6 @@ jobs:
       - name: Parse Terraform Output with jq
         run: |
           terraform output -json > tf_output.json
-
           PUBLIC_IP=$(jq -r '.public_ip.value' tf_output.json)
           INSTANCE_TYPE=$(jq -r '.instance_type.value' tf_output.json)
 
