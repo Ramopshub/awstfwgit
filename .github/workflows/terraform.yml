@@ -71,17 +71,7 @@ jobs:
       - name: Apply Terraform Plan
         run: terraform apply -auto-approve tfplan
 
-      - name: Extract EC2 Instance ID with jq
-        run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=your-instance-name" \
-            --query 'Reservations[].Instances[].InstanceId' \
-            --output json | jq -r '.[0]')
-
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-
-      - name: Print Instance ID
-        run: echo "AWS EC2 Instance ID: $INSTANCE_ID"
+      
 
       - name: Parse Terraform Output with jq
         run: |
