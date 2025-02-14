@@ -1,0 +1,30 @@
+name: Modify Terraform Variables with JQ
+
+on: push
+
+jobs:
+  modify-terraform-vars:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Create Sample Terraform Variables JSON
+        run: |
+          cat <<EOF > terraform.tfvars.json
+          {
+            "instance_type": "t2.micro",
+            "region": "us-east-1"
+          }
+          EOF
+
+      - name: Modify Terraform Variables with JQ
+        run: |
+          jq '.instance_type = "t3.medium" | .region = "us-west-2"' terraform.tfvars.json > temp.json && mv temp.json terraform.tfvars.json
+
+      - name: Display Updated Terraform Variables
+        run: cat terraform.tfvars.json
