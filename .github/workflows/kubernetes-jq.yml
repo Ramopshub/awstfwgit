@@ -18,7 +18,7 @@ jobs:
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
-          kubectl version --client  # Verify installation
+          kubectl version --client
 
       - name: Get Available EKS Clusters
         run: aws eks list-clusters --region us-east-1
@@ -28,7 +28,12 @@ jobs:
 
       - name: Configure Kubeconfig for EKS
         run: |
-          CLUSTER_NAME="your-cluster-name"  # Change this to the correct cluster name
+          CLUSTER_NAME=$(aws eks list-clusters --region us-east-1 --query "clusters[0]" --output text)
+          if [[ -z "$CLUSTER_NAME" || "$CLUSTER_NAME" == "None" ]]; then
+            echo "❌ No EKS cluster found in us-east-1. Exiting..."
+            exit 1
+          fi
+          echo "✅ Found Cluster: $CLUSTER_NAME"
           aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
