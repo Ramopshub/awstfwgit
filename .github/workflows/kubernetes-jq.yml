@@ -22,9 +22,10 @@ jobs:
 
       - name: Configure Kubeconfig
         run: |
-          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
-          export KUBECONFIG=$(pwd)/kubeconfig.yaml
-          kubectl config view
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > ~/.kube/config
+          export KUBECONFIG=~/.kube/config
+          kubectl config view  # Debugging to ensure config is loaded
 
       - name: Get Pod Details using jq
         run: |
