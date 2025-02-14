@@ -1,0 +1,42 @@
+name: JQ Terraform Output Extraction
+
+on: push
+
+jobs:
+  extract-terraform-outputs:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install jq and Terraform
+        run: |
+          sudo apt-get install -y jq
+          sudo apt-get install -y terraform
+
+      - name: Generate Sample Terraform Output JSON
+        run: |
+          cat <<EOF > tf_output.json
+          {
+            "public_ip": {
+              "value": "54.123.45.67"
+            },
+            "instance_type": {
+              "value": "t2.micro"
+            }
+          }
+          EOF
+
+      - name: Extract Public IP and Instance Type
+        run: |
+          PUBLIC_IP=$(jq -r '.public_ip.value' tf_output.json)
+          INSTANCE_TYPE=$(jq -r '.instance_type.value' tf_output.json)
+          
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+          echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
+
+      - name: Display Extracted Values
+        run: |
+          echo "Extracted Public IP: $PUBLIC_IP"
+          echo "Extracted Instance Type: $INSTANCE_TYPE"
