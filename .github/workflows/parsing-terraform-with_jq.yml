@@ -1,0 +1,47 @@
+name: Parse Terraform State with JQ
+
+on: push
+
+jobs:
+  parse-terraform-state:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Create Sample Terraform State File
+        run: |
+          cat <<EOF > terraform.tfstate
+          {
+            "resources": [
+              {
+                "type": "aws_instance",
+                "instances": [
+                  {
+                    "attributes": {
+                      "id": "i-0123456789abcdef0",
+                      "public_ip": "52.15.78.101"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+      - name: Extract Instance ID and Public IP
+        run: |
+          INSTANCE_ID=$(jq -r '.resources[0].instances[0].attributes.id' terraform.tfstate)
+          PUBLIC_IP=$(jq -r '.resources[0].instances[0].attributes.public_ip' terraform.tfstate)
+
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+
+      - name: Display Extracted Values
+        run: |
+          echo "Extracted Instance ID: $INSTANCE_ID"
+          echo "Extracted Public IP: $PUBLIC_IP"
