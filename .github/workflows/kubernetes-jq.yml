@@ -1,0 +1,49 @@
+name: Extract Kubernetes Pod Details
+
+on: push
+
+jobs:
+  extract-k8s-pods:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install kubectl and jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
+
+      - name: Set Up Kubernetes Context
+        env:
+          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+        run: |
+          echo "$KUBECONFIG" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          kubectl config view
+
+      - name: Fetch Kubernetes Pods and Save Output
+        run: |
+          kubectl get pods -o json > pods.json
+          echo "Kubernetes Pod Data Saved to pods.json"
+
+      - name: Extract Pod Names and Statuses using jq
+        run: |
+          POD_NAMES=$(jq -r '.items[].metadata.name' pods.json)
+          POD_STATUSES=$(jq -r '.items[].status.phase' pods.json)
+
+          echo "Extracted Pod Names:"
+          echo "$POD_NAMES"
+
+          echo "Extracted Pod Statuses:"
+          echo "$POD_STATUSES"
+
+      - name: Store Pod Details in GitHub Environment
+        run: |
+          echo "POD_NAMES=$POD_NAMES" >> $GITHUB_ENV
+          echo "POD_STATUSES=$POD_STATUSES" >> $GITHUB_ENV
