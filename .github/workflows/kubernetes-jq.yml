@@ -18,7 +18,12 @@ jobs:
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
           kubectl version --client
-
+      - name: Decode KubeConfig from GitHub Secrets
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          echo "${KUBE_CONFIG_DATA}" | base64 --decode > kubeconfig.yaml 2>/dev/null || echo "${KUBE_CONFIG_DATA}" | base64 -d > kubeconfig.yaml
+          cat kubeconfig.yaml
       - name: Set Up Kubernetes Context
         env:
           KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
