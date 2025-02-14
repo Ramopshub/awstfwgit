@@ -1,59 +1,39 @@
 name: Extract Kubernetes Pod Details
 
-on: push
+on:
+  workflow_dispatch:
 
 jobs:
-  extract-k8s-pods:
+  extract-pod-details:
     runs-on: ubuntu-latest
     steps:
-
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install kubectl and jq
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Install kubectl
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
-          kubectl version --client
-      - name: Decode KubeConfig from GitHub Secrets
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+          kubectl version --client  # Verify installation
+
+      - name: Configure Kubeconfig
         run: |
-          echo "${KUBE_CONFIG_DATA}" | base64 --decode > kubeconfig.yaml 2>/dev/null || echo "${KUBE_CONFIG_DATA}" | base64 -d > kubeconfig.yaml
-          cat kubeconfig.yaml
-      - name: Set Up Kubernetes Context
-        env:
-          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
-        run: |
-          echo "${KUBE_CONFIG_DATA}" | base64 --decode > kubeconfig.yaml 2>/dev/null || echo "${KUBE_CONFIG_DATA}" | base64 -d > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
+          export KUBECONFIG=$(pwd)/kubeconfig.yaml
           kubectl config view
 
-      - name: Verify Cluster Connection
+      - name: Get Pod Details using jq
         run: |
-          kubectl cluster-info
-          kubectl get nodes
+          POD_DETAILS=$(kubectl get pods -n default -o json)
+          echo "Raw Pod Details: $POD_DETAILS"  # Debugging
 
-      - name: Fetch Kubernetes Pods and Save Output
-        run: |
-          kubectl get pods -o json > pods.json
-          echo "Kubernetes Pod Data Saved to pods.json"
+          # Extract pod names and statuses using jq
+          POD_NAMES=$(echo "$POD_DETAILS" | jq -r '.items[].metadata.name')
+          POD_STATUSES=$(echo "$POD_DETAILS" | jq -r '.items[].status.phase')
 
-      - name: Extract Pod Names and Statuses using jq
-        run: |
-          POD_NAMES=$(jq -r '.items[].metadata.name' pods.json)
-          POD_STATUSES=$(jq -r '.items[].status.phase' pods.json)
-
-          echo "Extracted Pod Names:"
-          echo "$POD_NAMES"
-
-          echo "Extracted Pod Statuses:"
-          echo "$POD_STATUSES"
-
-      - name: Store Pod Details in GitHub Environment
-        run: |
-          echo "POD_NAMES=$POD_NAMES" >> $GITHUB_ENV
-          echo "POD_STATUSES=$POD_STATUSES" >> $GITHUB_ENV
+          echo "Pods in 'default' namespace:"
+          echo "$POD_NAMES" | paste -d ' ' - <(echo "$POD_STATUSES")
