@@ -1,57 +1,57 @@
-name: Extract Kubernetes Pod Details
+name: Get Kubernetes Pod Details
 
 on:
   workflow_dispatch:
 
 jobs:
-  extract-pod-details:
+  get-pods:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Install kubectl
+      - name: Install AWS CLI and Kubectl
         run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
-          kubectl version --client
 
-      - name: Get Available EKS Clusters
-        run: aws eks list-clusters --region us-east-1
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      - name: Configure Kubeconfig for EKS
+      - name: Find Available EKS Clusters
         run: |
-          CLUSTER_NAME=$(aws eks list-clusters --region us-east-1 --query "clusters[0]" --output text)
-          if [[ -z "$CLUSTER_NAME" || "$CLUSTER_NAME" == "None" ]]; then
-            echo "❌ No EKS cluster found in us-east-1. Exiting..."
+          REGIONS=("us-east-1" "us-west-2" "ap-south-1")
+          for REGION in "${REGIONS[@]}"; do
+            CLUSTER_NAME=$(aws eks list-clusters --region $REGION --query "clusters[0]" --output text)
+            if [[ "$CLUSTER_NAME" != "None" && ! -z "$CLUSTER_NAME" ]]; then
+              echo "✅ Found EKS Cluster: $CLUSTER_NAME in $REGION"
+              echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
+              echo "AWS_REGION=$REGION" >> $GITHUB_ENV
+              break
+            fi
+          done
+
+          if [[ -z "$CLUSTER_NAME" ]]; then
+            echo "❌ No EKS clusters found in configured regions. Exiting..."
             exit 1
           fi
-          echo "✅ Found Cluster: $CLUSTER_NAME"
-          aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
+
+      - name: Configure Kubeconfig
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Verify Kubernetes Connection
+      - name: Verify Kubernetes Access
         run: |
-          kubectl config view
           kubectl cluster-info
           kubectl get nodes
 
       - name: Get Pod Details using jq
         run: |
-          POD_DETAILS=$(kubectl get pods -n default -o json)
-          echo "Raw Pod Details: $POD_DETAILS"
-
-          POD_NAMES=$(echo "$POD_DETAILS" | jq -r '.items[].metadata.name')
-          POD_STATUSES=$(echo "$POD_DETAILS" | jq -r '.items[].status.phase')
-
-          echo "Pods in 'default' namespace:"
-          echo "$POD_NAMES" | paste -d ' ' - <(echo "$POD_STATUSES")
+          PODS_JSON=$(kubectl get pods -n default -o json)
+          echo "Raw Pod JSON: $PODS_JSON"
+          
+          POD_NAMES=$(echo "$PODS_JSON" | jq -r '.items[].metadata.name')
+          echo "Pod Names: $POD_NAMES"
