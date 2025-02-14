@@ -20,12 +20,30 @@ jobs:
           sudo mv kubectl /usr/local/bin/
           kubectl version --client  # Verify installation
 
-      - name: Configure Kubeconfig
+      - name: Configure Kubeconfig (For AWS EKS)
         run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 --decode > ~/.kube/config
-          export KUBECONFIG=~/.kube/config
-          kubectl config view  # Debugging to ensure config is loaded
+          aws eks update-kubeconfig --region us-east-1 --name my-cluster
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Configure Kubeconfig (For GCP GKE)
+        run: |
+          gcloud container clusters get-credentials my-cluster --zone us-central1-a
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Kubeconfig (For Azure AKS)
+        run: |
+          az aks get-credentials --resource-group my-resource-group --name my-cluster
+        env:
+          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Verify Kubernetes Connection
+        run: |
+          kubectl config view  # Check kubeconfig
+          kubectl cluster-info  # Verify connection
+          kubectl get nodes  # Ensure nodes are running
 
       - name: Get Pod Details using jq
         run: |
