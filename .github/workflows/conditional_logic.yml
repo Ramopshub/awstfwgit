@@ -1,0 +1,27 @@
+name: JQ Conditional Example
+
+on: push
+
+jobs:
+  conditional-logic:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Create Sample JSON File
+        run: |
+          cat <<EOF > data.json
+          {
+            "product": "Laptop",
+            "price": 120
+          }
+          EOF
+
+      - name: Check If Product Is Expensive or Affordable
+        run: |
+          jq 'if .price > 100 then "Expensive" else "Affordable" end' data.json
