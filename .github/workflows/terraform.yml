@@ -1,4 +1,4 @@
-name: Get AWS EC2 Instance Details Recursively
+name: Get AWS EC2 Instance Details Using jq
 
 on:
   workflow_dispatch:
@@ -17,26 +17,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Fetch EC2 Instance JSON
+      - name: Get EC2 Instance Details
         run: |
-          aws ec2 describe-instances --query "Reservations[].Instances[]" --output json > ec2.json
-          echo "✅ Fetched EC2 JSON"
+          echo "Fetching EC2 instance details..."
+          aws ec2 describe-instances --filters "Name=tag:Name,Values=MyVM" --query "Reservations[].Instances[]" --output json > instance_details.json
+          cat instance_details.json  # Print the raw JSON for debugging
 
-      - name: Extract Instance Details Recursively
+      - name: Parse JSON using jq (Recursive Extraction)
         run: |
-          INSTANCE_ID=$(jq -r '.. | objects | .InstanceId? // empty' ec2.json)
-          PUBLIC_IP=$(jq -r '.. | objects | .PublicIpAddress? // empty' ec2.json)
-          INSTANCE_TYPE=$(jq -r '.. | objects | .InstanceType? // empty' ec2.json)
-          PRIVATE_IP=$(jq -r '.. | objects | .PrivateIpAddress? // empty' ec2.json)
+          INSTANCE_ID=$(jq -r '.. | objects | select(.InstanceId?) | .InstanceId' instance_details.json)
+          PUBLIC_IP=$(jq -r '.. | objects | select(.PublicIpAddress?) | .PublicIpAddress // "No Public IP"' instance_details.json)
+          INSTANCE_TYPE=$(jq -r '.. | objects | select(.InstanceType?) | .InstanceType' instance_details.json)
 
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
           echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
           echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
-          echo "PRIVATE_IP=$PRIVATE_IP" >> $GITHUB_ENV
 
-      - name: Print Extracted Values
+      - name: Print Extracted Details
         run: |
           echo "✅ Instance ID: $INSTANCE_ID"
           echo "✅ Public IP: $PUBLIC_IP"
           echo "✅ Instance Type: $INSTANCE_TYPE"
-          echo "✅ Private IP: $PRIVATE_IP"
