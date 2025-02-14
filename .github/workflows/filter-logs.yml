@@ -1,0 +1,31 @@
+name: Filter Logs with JQ
+
+on: push
+
+jobs:
+  filter-json-logs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Create Sample Logs File
+        run: |
+          cat <<EOF > logs.json
+          [
+            {"timestamp": "2024-02-14T10:00:00Z", "level": "INFO", "message": "Application started"},
+            {"timestamp": "2024-02-14T10:05:00Z", "level": "ERROR", "message": "Failed to connect to database"},
+            {"timestamp": "2024-02-14T10:10:00Z", "level": "WARNING", "message": "Memory usage high"},
+            {"timestamp": "2024-02-14T10:15:00Z", "level": "ERROR", "message": "Timeout while processing request"}
+          ]
+          EOF
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Filter ERROR Logs
+        run: jq '.[] | select(.level == "ERROR")' logs.json
+
+      - name: Extract Only Error Messages
+        run: jq -r '.[] | select(.level == "ERROR") | .message' logs.json
