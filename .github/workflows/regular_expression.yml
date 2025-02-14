@@ -1,0 +1,36 @@
+name: JQ Regex Example
+
+on: push
+
+jobs:
+  extract-data:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Create Sample JSON File
+        run: |
+          cat <<EOF > data.json
+          {
+            "public_ip": "192.168.1.100",
+            "email": "admin@example.com",
+            "uuid": "123e4567-e89b-12d3-a456-426614174000"
+          }
+          EOF
+
+      - name: Extract IP Address
+        run: |
+          jq -r '.public_ip | select(test("^[0-9]{1,3}(\\.[0-9]{1,3}){3}$"))' data.json
+
+      - name: Extract Email
+        run: |
+          jq -r '.email | select(test("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"))' data.json
+
+      - name: Extract UUID
+        run: |
+          jq -r '.uuid | select(test("^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"))' data.json
