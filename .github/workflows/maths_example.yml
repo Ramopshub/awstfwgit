@@ -1,0 +1,41 @@
+name: JQ Math Example
+
+on: push
+
+jobs:
+  math-operations:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Create Sample JSON File
+        run: |
+          cat <<EOF > data.json
+          {
+            "numbers": [10, 20, 30, 40, 50],
+            "price": 99.99,
+            "discount": 10.5,
+            "quantity": 5
+          }
+          EOF
+
+      - name: Sum of Numbers
+        run: |
+          jq '[.numbers[]] | add' data.json
+
+      - name: Average of Numbers
+        run: |
+          jq '[.numbers[]] | add / length' data.json
+
+      - name: Calculate Discounted Price
+        run: |
+          jq '.price - .discount' data.json
+
+      - name: Calculate Total Cost (Price × Quantity)
+        run: |
+          jq '.price * .quantity' data.json
