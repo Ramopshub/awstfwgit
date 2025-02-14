@@ -1,0 +1,47 @@
+name: Parse AWS CLI Output with JQ
+
+on: push
+
+jobs:
+  parse-aws-cli-output:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install AWS CLI and jq
+        run: |
+          sudo apt-get install -y jq
+          sudo apt-get install -y awscli
+
+      - name: Generate Sample AWS CLI JSON Output
+        run: |
+          cat <<EOF > aws_output.json
+          {
+            "Reservations": [
+              {
+                "Instances": [
+                  {
+                    "InstanceId": "i-0123456789abcdef0",
+                    "PublicIpAddress": "54.234.12.34",
+                    "InstanceType": "t3.medium"
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+      - name: Extract Instance ID and Public IP
+        run: |
+          INSTANCE_ID=$(jq -r '.Reservations[0].Instances[0].InstanceId' aws_output.json)
+          PUBLIC_IP=$(jq -r '.Reservations[0].Instances[0].PublicIpAddress' aws_output.json)
+
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+
+      - name: Display Extracted Values
+        run: |
+          echo "Extracted Instance ID: $INSTANCE_ID"
+          echo "Extracted Public IP: $PUBLIC_IP"
