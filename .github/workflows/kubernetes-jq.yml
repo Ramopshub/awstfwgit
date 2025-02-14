@@ -20,37 +20,31 @@ jobs:
           sudo mv kubectl /usr/local/bin/
           kubectl version --client  # Verify installation
 
-      - name: Configure Kubeconfig (For AWS EKS)
-        run: |
-          aws eks update-kubeconfig --region us-east-1 --name my-cluster
+      - name: Get Available EKS Clusters
+        run: aws eks list-clusters --region us-east-1
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Configure Kubeconfig (For GCP GKE)
+      - name: Configure Kubeconfig for EKS
         run: |
-          gcloud container clusters get-credentials my-cluster --zone us-central1-a
+          CLUSTER_NAME="your-cluster-name"  # Change this to the correct cluster name
+          aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Configure Kubeconfig (For Azure AKS)
-        run: |
-          az aks get-credentials --resource-group my-resource-group --name my-cluster
-        env:
-          AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
       - name: Verify Kubernetes Connection
         run: |
-          kubectl config view  # Check kubeconfig
-          kubectl cluster-info  # Verify connection
-          kubectl get nodes  # Ensure nodes are running
+          kubectl config view
+          kubectl cluster-info
+          kubectl get nodes
 
       - name: Get Pod Details using jq
         run: |
           POD_DETAILS=$(kubectl get pods -n default -o json)
-          echo "Raw Pod Details: $POD_DETAILS"  # Debugging
+          echo "Raw Pod Details: $POD_DETAILS"
 
-          # Extract pod names and statuses using jq
           POD_NAMES=$(echo "$POD_DETAILS" | jq -r '.items[].metadata.name')
           POD_STATUSES=$(echo "$POD_DETAILS" | jq -r '.items[].status.phase')
 
