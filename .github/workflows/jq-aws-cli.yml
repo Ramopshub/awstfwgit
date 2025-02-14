@@ -1,35 +1,43 @@
-name: Setup Terraform and AWS CLI
+name: Parse AWS CLI Output with JQ
 
-on:
-  workflow_dispatch:
+on: push
 
 jobs:
-  setup:
+  parse-aws-cli-output:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install JQ
-        run: sudo apt-get install -y jq
+      - name: Install AWS CLI and jq
+        run: |
+          sudo apt-get install -y jq
+          sudo apt-get install -y awscli
 
-      - name: Install AWS CLI
-        run: |
-          sudo apt-get update
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
-          aws --version  # Verify AWS CLI installation
+      - name: Configure AWS Credentials
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+        run: aws configure set region $AWS_REGION
 
-      - name: Install Terraform
+      - name: Fetch EC2 Instance Details
         run: |
-          sudo apt-get update && sudo apt-get install -y software-properties-common gnupg
-          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-          sudo apt-get update && sudo apt-get install -y terraform
-          
-      - name: Verify Installations
+          aws ec2 describe-instances --query 'Reservations[*].Instances[*].{InstanceId:InstanceId,PublicIp:PublicIpAddress,InstanceType:InstanceType}' --output json > aws_output.json
+
+      - name: Extract Instance ID and Public IP
         run: |
-          terraform -version
-          aws --version
-          jq --version
+          INSTANCE_ID=$(jq -r '.[0][0].InstanceId' aws_output.json)
+          PUBLIC_IP=$(jq -r '.[0][0].PublicIp' aws_output.json)
+          INSTANCE_TYPE=$(jq -r '.[0][0].InstanceType' aws_output.json)
+
+          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
+          echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
+
+      - name: Display Extracted Values
+        run: |
+          echo "Extracted Instance ID: $INSTANCE_ID"
+          echo "Extracted Public IP: $PUBLIC_IP"
+          echo "Extracted Instance Type: $INSTANCE_TYPE"
