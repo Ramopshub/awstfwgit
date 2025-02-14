@@ -19,11 +19,11 @@ jobs:
           sudo mv kubectl /usr/local/bin/
           kubectl version --client
 
-      - name: Set Up Kubernetes Context
+      - name: Authenticate with Kubernetes Cluster
         env:
-          KUBECONFIG: ${{ secrets.KUBECONFIG }}
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
         run: |
-          echo "$KUBECONFIG" > kubeconfig.yaml
+          echo "$KUBE_CONFIG_DATA" | base64 --decode > kubeconfig.yaml
           export KUBECONFIG=kubeconfig.yaml
           kubectl config view
 
