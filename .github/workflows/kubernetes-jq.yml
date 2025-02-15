@@ -1,57 +1,26 @@
-name: Get Kubernetes Pod Details
+name: Find Available EKS Clusters
 
-on:
-  workflow_dispatch:
+on: [push]
 
 jobs:
-  get-pods:
+  find-eks-clusters:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install AWS CLI and Kubectl
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Change if needed
 
       - name: Find Available EKS Clusters
         run: |
           REGIONS=("us-east-1" "us-west-2" "ap-south-1")
-          for REGION in "${REGIONS[@]}"; do
-            CLUSTER_NAME=$(aws eks list-clusters --region $REGION --query "clusters[0]" --output text)
-            if [[ "$CLUSTER_NAME" != "None" && ! -z "$CLUSTER_NAME" ]]; then
-              echo "✅ Found EKS Cluster: $CLUSTER_NAME in $REGION"
-              echo "CLUSTER_NAME=$CLUSTER_NAME" >> $GITHUB_ENV
-              echo "AWS_REGION=$REGION" >> $GITHUB_ENV
-              break
-            fi
+          for region in "${REGIONS[@]}"; do
+            echo "Checking EKS clusters in $region..."
+            aws eks list-clusters --region $region
           done
-
-          if [[ -z "$CLUSTER_NAME" ]]; then
-            echo "❌ No EKS clusters found in configured regions. Exiting..."
-            exit 1
-          fi
-
-      - name: Configure Kubeconfig
-        run: |
-          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      - name: Verify Kubernetes Access
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
-
-      - name: Get Pod Details using jq
-        run: |
-          PODS_JSON=$(kubectl get pods -n default -o json)
-          echo "Raw Pod JSON: $PODS_JSON"
-          
-          POD_NAMES=$(echo "$PODS_JSON" | jq -r '.items[].metadata.name')
-          echo "Pod Names: $POD_NAMES"
