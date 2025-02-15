@@ -1,0 +1,22 @@
+name: Extract Kubernetes Pod Info
+
+on: [push]
+
+jobs:
+  extract-pods:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
+
+      - name: Get Pods and Extract Details
+        run: |
+          kubectl get pods -o json > pods.json
+          cat pods.json | jq '.items[] | {name: .metadata.name, status: .status.phase, node: .spec.nodeName}'
