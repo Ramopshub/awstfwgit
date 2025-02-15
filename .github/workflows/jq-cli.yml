@@ -1,10 +1,10 @@
-name: Fetch EC2 Details
+name: Fetch IAM Role Details
 
 on:
   workflow_dispatch:
 
 jobs:
-  fetch-ec2-details:
+  fetch-iam-role:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,23 +25,28 @@ jobs:
           aws --version
           jq --version
 
-      - name: Fetch Running EC2 Instances
+      - name: List IAM Roles
         run: |
-          aws ec2 describe-instances --filters "Name=instance-state-name,Values=running" --query 'Reservations[*].Instances[*]' --output json > ec2_instances.json
-          cat ec2_instances.json
+          aws iam list-roles --query "Roles[*].RoleName" --output json > iam_roles.json
+          cat iam_roles.json
 
-      - name: Extract Instance Details Using JQ
+      - name: Extract IAM Role Details
         run: |
-          INSTANCE_ID=$(jq -r '.[0][0].InstanceId' ec2_instances.json)
-          PUBLIC_IP=$(jq -r '.[0][0].PublicIpAddress // "No Public IP"' ec2_instances.json)
-          INSTANCE_TYPE=$(jq -r '.[0][0].InstanceType' ec2_instances.json)
+          ROLE_NAME=$(jq -r '.[0]' iam_roles.json)
+          echo "First IAM Role: $ROLE_NAME"
 
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-          echo "PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_ENV
-          echo "INSTANCE_TYPE=$INSTANCE_TYPE" >> $GITHUB_ENV
+          aws iam get-role --role-name "$ROLE_NAME" --output json > role_details.json
+          jq '.' role_details.json
 
-      - name: Display Extracted Values
+      - name: Extract IAM Policies Using JQ
         run: |
-          echo "EC2 Instance ID: $INSTANCE_ID"
-          echo "Public IP: $PUBLIC_IP"
-          echo "Instance Type: $INSTANCE_TYPE"
+          ROLE_ARN=$(jq -r '.Role.Arn' role_details.json)
+          TRUST_POLICY=$(jq -r '.Role.AssumeRolePolicyDocument' role_details.json)
+
+          echo "ROLE_ARN=$ROLE_ARN" >> $GITHUB_ENV
+          echo "TRUST_POLICY=$TRUST_POLICY" >> $GITHUB_ENV
+
+      - name: Display Extracted IAM Role Details
+        run: |
+          echo "Role ARN: $ROLE_ARN"
+          echo "Trust Policy: $TRUST_POLICY"
