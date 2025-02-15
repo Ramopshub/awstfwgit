@@ -1,0 +1,27 @@
+name: Parse CloudWatch Logs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  parse-logs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS CLI
+        run: aws configure set region us-east-1
+
+      - name: Fetch CloudWatch Logs
+        run: |
+          aws logs filter-log-events \
+            --log-group-name "/aws/lambda/my-function" \
+            --start-time $(date -d "10 minutes ago" +%s%3N) \
+            --end-time $(date +%s%3N) \
+            --query "events[*].message" \
+            --output json | jq '.[] | select(. | contains("ERROR"))' > error_logs.json
+
+      - name: Upload Logs Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-logs
+          path: error_logs.json
